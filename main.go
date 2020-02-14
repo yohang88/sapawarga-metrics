@@ -148,7 +148,7 @@ func watchRecentActiveUsers() {
     var kabkota string
     var count int
 
-    rows, _ := db.Query(`SELECT b.name, count(*) FROM user a join areas b on a.kabkota_id = b.id WHERE a.role = 50 && a.last_access_at >= DATE_SUB(NOW(), INTERVAL 50 MINUTE) GROUP BY a.kabkota_id`)
+    rows, _ := db.Query(`SELECT b.name, count(*) FROM user a join areas b on a.kabkota_id = b.id WHERE a.role = 50 && a.last_access_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE) GROUP BY a.kabkota_id`)
 
     for rows.Next() {
         err := rows.Scan(&kabkota, &count)
