@@ -69,7 +69,7 @@ func main() {
             watchRecentActiveUsers()
             watchUsersPostArea()
 
-            time.Sleep(time.Second * 5)
+            time.Sleep(time.Minute * 1)
         }
     }()
 
