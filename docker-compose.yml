@@ -1,0 +1,30 @@
+version: '3'
+
+services:
+  application:
+    image: yohang/sapawarga-metrics
+    environment:
+      - DB_HOST=192.168.88.69
+      - DB_USER=root
+      - DB_NAME=sapawarga_dev
+      - DB_PORT=3306
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus/:/etc/prometheus/
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - 3000:3000
+
+volumes:
+  prometheus_data:
+  grafana_data:
