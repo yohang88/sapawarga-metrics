@@ -42,6 +42,15 @@ var (
             "kabkota",
         })
 
+    usersDailyActiveArea = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Namespace: "sapawarga",
+            Name:      "users_active_daily",
+            Help:      "Daily active users by area",
+        },[]string{
+            "kabkota",
+        })
+
     usersPostArea = prometheus.NewGaugeVec(
         prometheus.GaugeOpts{
             Namespace: "sapawarga",
@@ -60,6 +69,7 @@ func main() {
     prometheus.MustRegister(usersLoggedInRole)
     prometheus.MustRegister(usersLoggedInArea)
     prometheus.MustRegister(usersRecentActiveArea)
+    prometheus.MustRegister(usersDailyActiveArea)
     prometheus.MustRegister(usersPostArea)
 
     go func() {
@@ -67,6 +77,7 @@ func main() {
             watchLoggedInUsersRoles()
             watchLoggedInUsersArea()
             watchRecentActiveUsers()
+            watchDailyActiveUsers()
             watchUsersPostArea()
 
             time.Sleep(time.Minute * 1)
@@ -158,6 +169,23 @@ func watchRecentActiveUsers() {
         }
 
         usersRecentActiveArea.WithLabelValues(kabkota).Set(float64(count))
+    }
+}
+
+func watchDailyActiveUsers() {
+    var kabkota string
+    var count int
+
+    rows, _ := db.Query(`SELECT b.name, count(*) FROM user a join areas b on a.kabkota_id = b.id WHERE a.role = 50 && DATE(a.last_access_at) = DATE(NOW()) GROUP BY a.kabkota_id`)
+
+    for rows.Next() {
+        err := rows.Scan(&kabkota, &count)
+
+        if err != nil {
+            log.Fatal(err)
+        }
+
+        usersDailyActiveArea.WithLabelValues(kabkota).Set(float64(count))
     }
 }
 
