@@ -51,6 +51,24 @@ var (
             "kabkota",
         })
 
+    usersWeeklyActiveArea = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Namespace: "sapawarga",
+            Name:      "users_active_weekly",
+            Help:      "Weekly active users by area",
+        },[]string{
+            "kabkota",
+        })
+
+    usersMonthlyActiveArea = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Namespace: "sapawarga",
+            Name:      "users_active_monthly",
+            Help:      "Monthly active users by area",
+        },[]string{
+            "kabkota",
+        })
+
     usersPostArea = prometheus.NewGaugeVec(
         prometheus.GaugeOpts{
             Namespace: "sapawarga",
@@ -70,6 +88,8 @@ func main() {
     prometheus.MustRegister(usersLoggedInArea)
     prometheus.MustRegister(usersRecentActiveArea)
     prometheus.MustRegister(usersDailyActiveArea)
+    prometheus.MustRegister(usersWeeklyActiveArea)
+    prometheus.MustRegister(usersMonthlyActiveArea)
     prometheus.MustRegister(usersPostArea)
 
     go func() {
@@ -78,6 +98,8 @@ func main() {
             watchLoggedInUsersArea()
             watchRecentActiveUsers()
             watchDailyActiveUsers()
+            watchWeeklyActiveUsers()
+            watchMonthlyActiveUsers()
             watchUsersPostArea()
 
             time.Sleep(time.Minute * 1)
@@ -186,6 +208,40 @@ func watchDailyActiveUsers() {
         }
 
         usersDailyActiveArea.WithLabelValues(kabkota).Set(float64(count))
+    }
+}
+
+func watchWeeklyActiveUsers() {
+    var kabkota string
+    var count int
+
+    rows, _ := db.Query(`SELECT b.name, count(*) FROM user a JOIN areas b ON a.kabkota_id = b.id WHERE a.role = 50 && YEARWEEK(last_access_at, 1) = YEARWEEK(CURDATE(), 1) GROUP BY a.kabkota_id`)
+
+    for rows.Next() {
+        err := rows.Scan(&kabkota, &count)
+
+        if err != nil {
+            log.Fatal(err)
+        }
+
+        usersWeeklyActiveArea.WithLabelValues(kabkota).Set(float64(count))
+    }
+}
+
+func watchMonthlyActiveUsers() {
+    var kabkota string
+    var count int
+
+    rows, _ := db.Query(`SELECT b.name, count(*) FROM user a JOIN areas b ON a.kabkota_id = b.id WHERE a.role = 50 && last_access_at >= DATE_FORMAT(NOW() ,'%Y-%m-01') GROUP BY a.kabkota_id`)
+
+    for rows.Next() {
+        err := rows.Scan(&kabkota, &count)
+
+        if err != nil {
+            log.Fatal(err)
+        }
+
+        usersMonthlyActiveArea.WithLabelValues(kabkota).Set(float64(count))
     }
 }
 
