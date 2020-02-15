@@ -142,7 +142,7 @@ func watchLoggedInUsersArea() {
     var kabkota string
     var count int
 
-    rows, _ := db.Query(`SELECT b.name, count(*) FROM user a join areas b on a.kabkota_id = b.id WHERE role = 50 and last_login_at is not null GROUP BY a.kabkota_id`)
+    rows, _ := db.Query(`SELECT b.name, count(*) FROM user a join areas b on a.kabkota_id = b.id WHERE role = 50 and a.status = 10 and last_login_at is not null GROUP BY a.kabkota_id`)
 
     for rows.Next() {
         err := rows.Scan(&kabkota, &count)
