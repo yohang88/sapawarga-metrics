@@ -94,15 +94,22 @@ func main() {
 
     go func() {
         for {
+            watchRecentActiveUsers()
+
+            time.Sleep(time.Minute * 1)
+        }
+    }()
+
+    go func() {
+        for {
             watchLoggedInUsersRoles()
             watchLoggedInUsersArea()
-            watchRecentActiveUsers()
             watchDailyActiveUsers()
             watchWeeklyActiveUsers()
             watchMonthlyActiveUsers()
             watchUsersPostArea()
 
-            time.Sleep(time.Minute * 1)
+            time.Sleep(time.Minute * 5)
         }
     }()
 
@@ -115,6 +122,8 @@ func watchLoggedInUsersRoles() {
     var countStaffKecamatan int
     var countStaffKelurahan int
     var countRW int
+
+    usersLoggedInRole.Reset()
 
     // --- Staff Prov Users
     err := db.QueryRow("select count(*) from user where role = 90 and status = 10 and last_login_at is not null;").Scan(&countStaffProv)
@@ -164,7 +173,11 @@ func watchLoggedInUsersArea() {
     var kabkota string
     var count int
 
+    usersLoggedInArea.Reset()
+
     rows, _ := db.Query(`SELECT b.name, count(*) FROM user a join areas b on a.kabkota_id = b.id WHERE role = 50 and a.status = 10 and last_login_at is not null GROUP BY a.kabkota_id`)
+
+    defer rows.Close()
 
     for rows.Next() {
         err := rows.Scan(&kabkota, &count)
@@ -181,7 +194,11 @@ func watchRecentActiveUsers() {
     var kabkota string
     var count int
 
+    usersRecentActiveArea.Reset()
+
     rows, _ := db.Query(`SELECT b.name, count(*) FROM user a join areas b on a.kabkota_id = b.id WHERE a.role = 50 && a.last_access_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE) GROUP BY a.kabkota_id`)
+
+    defer rows.Close()
 
     for rows.Next() {
         err := rows.Scan(&kabkota, &count)
@@ -198,7 +215,11 @@ func watchDailyActiveUsers() {
     var kabkota string
     var count int
 
+    usersDailyActiveArea.Reset()
+
     rows, _ := db.Query(`SELECT b.name, count(*) FROM user a join areas b on a.kabkota_id = b.id WHERE a.role = 50 && DATE(a.last_access_at) = DATE(NOW()) GROUP BY a.kabkota_id`)
+
+    defer rows.Close()
 
     for rows.Next() {
         err := rows.Scan(&kabkota, &count)
@@ -215,7 +236,11 @@ func watchWeeklyActiveUsers() {
     var kabkota string
     var count int
 
+    usersWeeklyActiveArea.Reset()
+
     rows, _ := db.Query(`SELECT b.name, count(*) FROM user a JOIN areas b ON a.kabkota_id = b.id WHERE a.role = 50 && YEARWEEK(last_access_at, 1) = YEARWEEK(CURDATE(), 1) GROUP BY a.kabkota_id`)
+
+    defer rows.Close()
 
     for rows.Next() {
         err := rows.Scan(&kabkota, &count)
@@ -232,7 +257,11 @@ func watchMonthlyActiveUsers() {
     var kabkota string
     var count int
 
+    usersMonthlyActiveArea.Reset()
+
     rows, _ := db.Query(`SELECT b.name, count(*) FROM user a JOIN areas b ON a.kabkota_id = b.id WHERE a.role = 50 && last_access_at >= DATE_FORMAT(NOW() ,'%Y-%m-01') GROUP BY a.kabkota_id`)
+
+    defer rows.Close()
 
     for rows.Next() {
         err := rows.Scan(&kabkota, &count)
@@ -249,7 +278,11 @@ func watchUsersPostArea() {
     var kabkota string
     var count int
 
+    usersPostArea.Reset()
+
     rows, _ := db.Query(`SELECT c.name, count(*) FROM user_posts a JOIN user b ON a.created_by = b.id JOIN areas c ON b.kabkota_id = c.id GROUP BY b.kabkota_id;`)
+
+    defer rows.Close()
 
     for rows.Next() {
         err := rows.Scan(&kabkota, &count)
