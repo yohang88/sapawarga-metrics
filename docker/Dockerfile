@@ -9,4 +9,6 @@ RUN go get -d . && go build main.go
 FROM alpine
 WORKDIR /app
 COPY --from=build-env /app/main /app/
+EXPOSE 8000
+
 ENTRYPOINT ./main
