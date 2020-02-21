@@ -228,7 +228,7 @@ func watchLoggedInUsersAreaAll() {
     var longitude string
     var count int
 
-    usersLoggedInArea.Reset()
+    usersLoggedInAreaAll.Reset()
 
     rows, _ := db.Query(`SELECT b.name, c.name, d.name, COALESCE(d.latitude, ''), COALESCE(d.longitude, ''), count(*) FROM user a 
         JOIN areas b ON a.kabkota_id = b.id 
@@ -279,7 +279,7 @@ func watchRecentActiveUsersAll() {
     var longitude string
     var count int
 
-    usersRecentActiveArea.Reset()
+    usersRecentActiveAreaAll.Reset()
 
     rows, _ := db.Query(`SELECT b.name, c.name, d.name, COALESCE(d.latitude, ''), COALESCE(d.longitude, ''), count(*) FROM user a 
         JOIN areas b ON a.kabkota_id = b.id 
