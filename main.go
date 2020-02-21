@@ -33,6 +33,19 @@ var (
             "kabkota",
         })
 
+    usersLoggedInAreaAll = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Namespace: "sapawarga",
+            Name:      "users_loggedin_area_all",
+            Help:      "Logged in users by area all",
+        },[]string{
+            "kabkota",
+            "kecamatan",
+            "kelurahan",
+            "latitude",
+            "longitude",
+        })
+
     usersRecentActiveArea = prometheus.NewGaugeVec(
         prometheus.GaugeOpts{
             Namespace: "sapawarga",
@@ -40,6 +53,19 @@ var (
             Help:      "Recent active users by area",
         },[]string{
             "kabkota",
+        })
+
+    usersRecentActiveAreaAll = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Namespace: "sapawarga",
+            Name:      "users_recent_active_all",
+            Help:      "Recent active users by area all",
+        },[]string{
+            "kabkota",
+            "kecamatan",
+            "kelurahan",
+            "latitude",
+            "longitude",
         })
 
     usersDailyActiveArea = prometheus.NewGaugeVec(
@@ -86,7 +112,9 @@ func main() {
 
     prometheus.MustRegister(usersLoggedInRole)
     prometheus.MustRegister(usersLoggedInArea)
+    prometheus.MustRegister(usersLoggedInAreaAll)
     prometheus.MustRegister(usersRecentActiveArea)
+    prometheus.MustRegister(usersRecentActiveAreaAll)
     prometheus.MustRegister(usersDailyActiveArea)
     prometheus.MustRegister(usersWeeklyActiveArea)
     prometheus.MustRegister(usersMonthlyActiveArea)
@@ -95,6 +123,7 @@ func main() {
     go func() {
         for {
             watchRecentActiveUsers()
+            watchRecentActiveUsersAll()
 
             time.Sleep(time.Minute * 1)
         }
@@ -104,6 +133,7 @@ func main() {
         for {
             watchLoggedInUsersRoles()
             watchLoggedInUsersArea()
+            watchLoggedInUsersAreaAll()
             watchDailyActiveUsers()
             watchWeeklyActiveUsers()
             watchMonthlyActiveUsers()
@@ -190,6 +220,36 @@ func watchLoggedInUsersArea() {
     }
 }
 
+func watchLoggedInUsersAreaAll() {
+    var kabkota string
+    var kecamatan string
+    var kelurahan string
+    var latitude string
+    var longitude string
+    var count int
+
+    usersLoggedInArea.Reset()
+
+    rows, _ := db.Query(`SELECT b.name, c.name, d.name, COALESCE(d.latitude, ''), COALESCE(d.longitude, ''), count(*) FROM user a 
+        JOIN areas b ON a.kabkota_id = b.id 
+        JOIN areas c ON a.kec_id = c.id 
+        JOIN areas d ON a.kel_id = d.id 
+        WHERE role = 50 AND a.status = 10 AND last_login_at IS NOT NULL
+        GROUP BY a.kabkota_id, a.kec_id, a.kel_id`)
+
+    defer rows.Close()
+
+    for rows.Next() {
+        err := rows.Scan(&kabkota, &kecamatan, &kelurahan, &latitude, &longitude, &count)
+
+        if err != nil {
+            log.Fatal(err)
+        }
+
+        usersLoggedInAreaAll.WithLabelValues(kabkota, kecamatan, kelurahan, latitude, longitude).Set(float64(count))
+    }
+}
+
 func watchRecentActiveUsers() {
     var kabkota string
     var count int
@@ -208,6 +268,37 @@ func watchRecentActiveUsers() {
         }
 
         usersRecentActiveArea.WithLabelValues(kabkota).Set(float64(count))
+    }
+}
+
+func watchRecentActiveUsersAll() {
+    var kabkota string
+    var kecamatan string
+    var kelurahan string
+    var latitude string
+    var longitude string
+    var count int
+
+    usersRecentActiveArea.Reset()
+
+    rows, _ := db.Query(`SELECT b.name, c.name, d.name, COALESCE(d.latitude, ''), COALESCE(d.longitude, ''), count(*) FROM user a 
+        JOIN areas b ON a.kabkota_id = b.id 
+        JOIN areas c ON a.kec_id = c.id 
+        JOIN areas d ON a.kel_id = d.id 
+        
+        WHERE role = 50 AND a.status = 10 AND a.last_access_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+        GROUP BY a.kabkota_id, a.kec_id, a.kel_id`)
+
+    defer rows.Close()
+
+    for rows.Next() {
+        err := rows.Scan(&kabkota, &kecamatan, &kelurahan, &latitude, &longitude, &count)
+
+        if err != nil {
+            log.Fatal(err)
+        }
+
+        usersRecentActiveAreaAll.WithLabelValues(kabkota, kecamatan, kelurahan, latitude, longitude).Set(float64(count))
     }
 }
 
