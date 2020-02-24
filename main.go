@@ -77,6 +77,19 @@ var (
             "kabkota",
         })
 
+    usersDailyActiveAreaAll = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Namespace: "sapawarga",
+            Name:      "users_active_daily_all",
+            Help:      "Daily active users by area all",
+        },[]string{
+            "kabkota",
+            "kecamatan",
+            "kelurahan",
+            "latitude",
+            "longitude",
+        })
+
     usersWeeklyActiveArea = prometheus.NewGaugeVec(
         prometheus.GaugeOpts{
             Namespace: "sapawarga",
@@ -86,6 +99,19 @@ var (
             "kabkota",
         })
 
+    usersWeeklyActiveAreaAll = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Namespace: "sapawarga",
+            Name:      "users_active_weekly_all",
+            Help:      "Weekly active users by area all",
+        },[]string{
+            "kabkota",
+            "kecamatan",
+            "kelurahan",
+            "latitude",
+            "longitude",
+        })
+
     usersMonthlyActiveArea = prometheus.NewGaugeVec(
         prometheus.GaugeOpts{
             Namespace: "sapawarga",
@@ -93,6 +119,19 @@ var (
             Help:      "Monthly active users by area",
         },[]string{
             "kabkota",
+        })
+
+    usersMonthlyActiveAreaAll = prometheus.NewGaugeVec(
+        prometheus.GaugeOpts{
+            Namespace: "sapawarga",
+            Name:      "users_active_monthly_all",
+            Help:      "Monthly active users by area_all",
+        },[]string{
+            "kabkota",
+            "kecamatan",
+            "kelurahan",
+            "latitude",
+            "longitude",
         })
 
     usersPostArea = prometheus.NewGaugeVec(
@@ -113,11 +152,19 @@ func main() {
     prometheus.MustRegister(usersLoggedInRole)
     prometheus.MustRegister(usersLoggedInArea)
     prometheus.MustRegister(usersLoggedInAreaAll)
+
     prometheus.MustRegister(usersRecentActiveArea)
     prometheus.MustRegister(usersRecentActiveAreaAll)
+
     prometheus.MustRegister(usersDailyActiveArea)
+    prometheus.MustRegister(usersDailyActiveAreaAll)
+
     prometheus.MustRegister(usersWeeklyActiveArea)
+    prometheus.MustRegister(usersWeeklyActiveAreaAll)
+
     prometheus.MustRegister(usersMonthlyActiveArea)
+    prometheus.MustRegister(usersMonthlyActiveAreaAll)
+
     prometheus.MustRegister(usersPostArea)
 
     go func() {
@@ -125,7 +172,7 @@ func main() {
             watchRecentActiveUsers()
             watchRecentActiveUsersAll()
 
-            time.Sleep(time.Minute * 1)
+            time.Sleep(time.Minute * 2)
         }
     }()
 
@@ -134,12 +181,25 @@ func main() {
             watchLoggedInUsersRoles()
             watchLoggedInUsersArea()
             watchLoggedInUsersAreaAll()
-            watchDailyActiveUsers()
-            watchWeeklyActiveUsers()
-            watchMonthlyActiveUsers()
+
             watchUsersPostArea()
 
-            time.Sleep(time.Minute * 5)
+            time.Sleep(time.Minute * 10)
+        }
+    }()
+
+    go func() {
+        for {
+            watchDailyActiveUsers()
+            watchDailyActiveUsersAll()
+
+            watchWeeklyActiveUsers()
+            watchWeeklyActiveUsersAll()
+
+            watchMonthlyActiveUsers()
+            watchMonthlyActiveUsersAll()
+
+            time.Sleep(time.Minute * 30)
         }
     }()
 
@@ -323,6 +383,37 @@ func watchDailyActiveUsers() {
     }
 }
 
+func watchDailyActiveUsersAll() {
+    var kabkota string
+    var kecamatan string
+    var kelurahan string
+    var latitude string
+    var longitude string
+    var count int
+
+    usersDailyActiveAreaAll.Reset()
+
+    rows, _ := db.Query(`SELECT b.name, c.name, d.name, COALESCE(d.latitude, ''), COALESCE(d.longitude, ''), count(*) FROM user a 
+        JOIN areas b ON a.kabkota_id = b.id 
+        JOIN areas c ON a.kec_id = c.id 
+        JOIN areas d ON a.kel_id = d.id 
+        
+        WHERE role = 50 AND a.status = 10 AND DATE(a.last_access_at) = DATE(NOW())
+        GROUP BY a.kabkota_id, a.kec_id, a.kel_id`)
+
+    defer rows.Close()
+
+    for rows.Next() {
+        err := rows.Scan(&kabkota, &kecamatan, &kelurahan, &latitude, &longitude, &count)
+
+        if err != nil {
+            log.Fatal(err)
+        }
+
+        usersDailyActiveAreaAll.WithLabelValues(kabkota, kecamatan, kelurahan, latitude, longitude).Set(float64(count))
+    }
+}
+
 func watchWeeklyActiveUsers() {
     var kabkota string
     var count int
@@ -344,6 +435,37 @@ func watchWeeklyActiveUsers() {
     }
 }
 
+func watchWeeklyActiveUsersAll() {
+    var kabkota string
+    var kecamatan string
+    var kelurahan string
+    var latitude string
+    var longitude string
+    var count int
+
+    usersWeeklyActiveAreaAll.Reset()
+
+    rows, _ := db.Query(`SELECT b.name, c.name, d.name, COALESCE(d.latitude, ''), COALESCE(d.longitude, ''), count(*) FROM user a 
+        JOIN areas b ON a.kabkota_id = b.id 
+        JOIN areas c ON a.kec_id = c.id 
+        JOIN areas d ON a.kel_id = d.id 
+        
+        WHERE role = 50 AND a.status = 10 AND YEARWEEK(last_access_at, 1) = YEARWEEK(CURDATE(), 1)
+        GROUP BY a.kabkota_id, a.kec_id, a.kel_id`)
+
+    defer rows.Close()
+
+    for rows.Next() {
+        err := rows.Scan(&kabkota, &kecamatan, &kelurahan, &latitude, &longitude, &count)
+
+        if err != nil {
+            log.Fatal(err)
+        }
+
+        usersWeeklyActiveAreaAll.WithLabelValues(kabkota, kecamatan, kelurahan, latitude, longitude).Set(float64(count))
+    }
+}
+
 func watchMonthlyActiveUsers() {
     var kabkota string
     var count int
@@ -362,6 +484,38 @@ func watchMonthlyActiveUsers() {
         }
 
         usersMonthlyActiveArea.WithLabelValues(kabkota).Set(float64(count))
+    }
+}
+
+func watchMonthlyActiveUsersAll() {
+    var kabkota string
+    var kecamatan string
+    var kelurahan string
+    var latitude string
+    var longitude string
+    var count int
+
+    usersMonthlyActiveAreaAll.Reset()
+
+    rows, _ := db.Query(`
+        SELECT b.name, c.name, d.name, COALESCE(d.latitude, ''), COALESCE(d.longitude, ''), count(*) FROM user a 
+        JOIN areas b ON a.kabkota_id = b.id 
+        JOIN areas c ON a.kec_id = c.id 
+        JOIN areas d ON a.kel_id = d.id 
+        
+        WHERE role = 50 AND a.status = 10 AND last_access_at >= DATE_FORMAT(NOW() ,'%Y-%m-01')
+        GROUP BY a.kabkota_id, a.kec_id, a.kel_id`)
+
+    defer rows.Close()
+
+    for rows.Next() {
+        err := rows.Scan(&kabkota, &kecamatan, &kelurahan, &latitude, &longitude, &count)
+
+        if err != nil {
+            log.Fatal(err)
+        }
+
+        usersMonthlyActiveAreaAll.WithLabelValues(kabkota, kecamatan, kelurahan, latitude, longitude).Set(float64(count))
     }
 }
 
